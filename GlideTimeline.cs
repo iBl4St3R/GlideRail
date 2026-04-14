@@ -332,7 +332,7 @@ namespace GlideRail
         // HELPERS
         // ═════════════════════════════════════════════════════════════════════
 
-        private float TileWidth() => 36f;
+        private float TileWidth() => 43f;
 
         
         private void AddTileButton(IntPtr containerPtr, string label,
