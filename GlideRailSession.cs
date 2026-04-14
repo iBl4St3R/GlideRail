@@ -100,9 +100,11 @@ namespace GlideRail
             _flyActive = true;
             _uiMode = true;
 
-            // Śledź request żeby zawsze móc go zwolnić
             _cursorRequested = true;
             CursorManager.Request();
+
+            // ← NOWE: panel był zbudowany z _uiMode=false, sync go teraz
+            _panel?.OnCursorModeChanged(_uiMode);
         }
 
         public void OnPanelClosed()
@@ -355,6 +357,41 @@ namespace GlideRail
             print($"  Brain       : {brainState}");
             print("════════════════════════════════════");
         }
+
+        /// <summary>
+        /// Wołane przez GlideRailPanel po każdym RebuildPanel().
+        /// Gwarantuje że kursor i hint są w sync ze stanem sesji,
+        /// nawet jeśli DestroyPanel() zwolnił cursor request.
+        /// </summary>
+        public void NotifyPanelRebuilt()
+        {
+            if (!_flyActive) return;
+
+            // Przywróć cursor request jeśli został zwolniony przez DestroyPanel
+            if (_uiMode && !_cursorRequested)
+            {
+                _cursorRequested = true;
+                CursorManager.Request();
+            }
+
+            // Sync UI (hint + przycisk) z aktualnym stanem sesji
+            _panel?.OnCursorModeChanged(_uiMode);
+        }
+
+
+        public void ResyncCursorAfterRebuild()
+        {
+            if (!_flyActive) return;
+
+            if (_uiMode)
+            {
+                // Upewnij się że kursor jest — niezależnie od tego co zrobił DestroyPanel
+                _cursorRequested = true;
+                CursorManager.Request();
+            }
+            // Fly mode — nie rób nic, kursor i tak nie powinien być widoczny
+        }
+
 
         // ═════════════════════════════════════════════════════════════════════
         // GETTERS / SETTERS

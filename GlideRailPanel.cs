@@ -1,4 +1,4 @@
-﻿// GlideRailPanel.cs
+﻿
 using CMS2026UITKFramework;
 using MelonLoader;
 using System;
@@ -9,6 +9,20 @@ namespace GlideRail
 {
     public class GlideRailPanel
     {
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT p);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetCursorPos(int x, int y);
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct POINT { public int X; public int Y; }
+
+        private POINT _savedCursorPos;
+        private bool _hasSavedPos;
+
+
         private readonly GlideRailSession _session;
 
         private UIPanel _panel;
@@ -198,6 +212,13 @@ namespace GlideRail
 
             _panel = p;
             _panel.SetVisible(_panelVisible);
+            _session.ResyncCursorAfterRebuild();
+
+            if (_hasSavedPos)
+            {
+                _hasSavedPos = false;
+                SetCursorPos(_savedCursorPos.X, _savedCursorPos.Y);
+            }
         }
 
         // ── Controls row ──────────────────────────────────────────────────────
@@ -391,6 +412,11 @@ namespace GlideRail
 
         private IEnumerator RebuildDeferred()
         {
+            if (_session.IsUIMode)
+            {
+                GetCursorPos(out _savedCursorPos);
+                _hasSavedPos = true;
+            }
             yield return null;
             RebuildPanel();
         }

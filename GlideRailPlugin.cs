@@ -49,9 +49,9 @@ namespace GlideRail
         {
             try
             {
-                // Jeśli GlideRail aktywnie leci — nie przywracaj Garage
-                // (kursor schowany ale panel nadal przejął kamerę)
-                if (_session != null && _session.IsFlyActive) return;
+                // Kursor potrzebny tylko gdy GlideRail leci I jest w UI mode.
+                // Gdy leci w Fly mode — pozwól przywrócić GameMode.Garage (chowamy kursor).
+                if (_session != null && _session.IsFlyActive && _session.IsUIMode) return;
 
                 if (Il2CppCMS.Core.GameMode.Get().currentMode == Il2Cpp.gameMode.UI)
                     Il2CppCMS.Core.GameMode.Get().SetCurrentMode(Il2Cpp.gameMode.Garage);
