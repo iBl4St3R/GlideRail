@@ -1,5 +1,4 @@
-﻿// GlideRailSession.cs
-using CMS2026UITKFramework;
+﻿using CMS2026UITKFramework;
 using MelonLoader;
 using System;
 using System.Collections.Generic;
@@ -10,21 +9,21 @@ namespace GlideRail
 {
     public class GlideRailSession
     {
-        //ui
-        public void TogglePanel() => _panel?.Toggle();
+        
 
         // ── Kamera ────────────────────────────────────────────────────────────
         private GameObject _mainCam;
         private UnityEngine.Behaviour _brain;
 
         // ── Stan ──────────────────────────────────────────────────────────────
-        private bool _flyActive = false;   // czy kamera przejęta
-        private bool _uiMode = false;    // czy kursor wolny (UI mode)
+        private bool _flyActive = false;
+        private bool _uiMode = false;
         private float _camYaw = 0f;
         private float _camPitch = 0f;
         private float _camRoll = 0f;
         private float _flySpeed = 14f;
         private float _flySens = 1.8f;
+        private bool _cursorRequested = false;
 
         // ── Ścieżka ───────────────────────────────────────────────────────────
         private readonly List<GlideKeyframe> _keyframes = new();
@@ -44,22 +43,19 @@ namespace GlideRail
 
         public void Initialize()
         {
-            // Tylko znajdź kamerę i zbuduj systemy —
-            // NIE dotykamy inputu, kursora ani mózgu Cinemachine
             _mainCam = GameObject.Find("MainCamera");
 
             _debugRenderer = new GlideDebugRenderer();
             _debugRenderer.Initialize();
 
             _panel = new GlideRailPanel(this);
-            _panel.Build();   // panel jest zbudowany ale UKRYTY
+            _panel.Build();  // panel ukryty
 
-            GlideRailPlugin.Log.Msg("[GlideRail] Session initialized (panel hidden).");
+            GlideRailPlugin.Log.Msg("[GlideRail] Session initialized.");
         }
 
         public void Shutdown()
         {
-            // Jeśli panel był otwarty — przywróć grę
             if (_flyActive)
                 ReturnControlToPlayer();
 
@@ -89,13 +85,9 @@ namespace GlideRail
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // PANEL OPEN / CLOSE — główne przejście kamera ↔ gracz
+        // PANEL OPEN / CLOSE
         // ═════════════════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Wywołane gdy panel GlideRail się otwiera.
-        /// Przejmuje kamerę i blokuje wejście gracza.
-        /// </summary>
         public void OnPanelOpened()
         {
             if (_flyActive) return;
@@ -104,18 +96,15 @@ namespace GlideRail
             SyncAnglesFromCamera();
             FindAndDisableBrain();
             SetPlayerInput(false);
-            LockCursor();
 
             _flyActive = true;
-            _uiMode = false;
+            _uiMode = true;
 
-            GlideRailPlugin.Log.Msg("[GlideRail] Camera taken — player input blocked.");
+            // Śledź request żeby zawsze móc go zwolnić
+            _cursorRequested = true;
+            CursorManager.Request();
         }
 
-        /// <summary>
-        /// Wywołane gdy panel GlideRail się zamyka.
-        /// Oddaje kontrolę graczowi.
-        /// </summary>
         public void OnPanelClosed()
         {
             if (!_flyActive) return;
@@ -124,49 +113,48 @@ namespace GlideRail
             ReturnControlToPlayer();
         }
 
-        // ─────────────────────────────────────────────────────────────────────
-
         private void ReturnControlToPlayer()
         {
+            // Najpierw sygnalizuj że już nie lecimy
             _flyActive = false;
             _playing = false;
+            _uiMode = false;
 
-            // Jeśli byliśmy w UI mode — zwolnij request kursora
-            if (_uiMode)
+            // Teraz Release — OnCursorHide zobaczy IsFlyActive=false → ustawi GameMode.Garage
+            if (_cursorRequested)
             {
+                _cursorRequested = false;
                 CursorManager.Release();
-                _uiMode = false;
             }
 
             RestoreBrain();
             SetPlayerInput(true);
-            RestoreCursor();
-
-            GlideRailPlugin.Log.Msg("[GlideRail] Control returned to player.");
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // CURSOR TOGGLE (F9 / UI Mode button)
+        // CURSOR TOGGLE (F9)
         // ═════════════════════════════════════════════════════════════════════
 
         public void ToggleCursor()
         {
             if (!_flyActive) return;
-
             _uiMode = !_uiMode;
 
             if (_uiMode)
             {
-                // Fly → UI: pokaż kursor przez framework
+                // Fly → UI: pokaż kursor
+                _cursorRequested = true;
                 CursorManager.Request();
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
             }
             else
             {
-                // UI → Fly: zwolnij kursor
-                CursorManager.Release();
-                LockCursor();
+                // UI → Fly: schowaj kursor
+                // OnCursorHide NIE przełączy GameMode bo IsFlyActive=true
+                if (_cursorRequested)
+                {
+                    _cursorRequested = false;
+                    CursorManager.Release();
+                }
             }
 
             _panel?.OnCursorModeChanged(_uiMode);
@@ -191,16 +179,19 @@ namespace GlideRail
         {
             if (_mainCam == null) return;
 
+            // Mouse look
             _camYaw += Input.GetAxis("Mouse X") * _flySens;
             _camPitch = Mathf.Clamp(
                 _camPitch - Input.GetAxis("Mouse Y") * _flySens, -88f, 88f);
 
-            if (Input.GetKey(KeyCode.Q)) _camRoll += 55f * dt;
-            if (Input.GetKey(KeyCode.E)) _camRoll -= 55f * dt;
+            // Q/E roll — skalowany przez _flySens tak samo jak mysz
+            if (Input.GetKey(KeyCode.Q)) _camRoll += 55f * dt * _flySens;
+            if (Input.GetKey(KeyCode.E)) _camRoll -= 55f * dt * _flySens;
 
             _mainCam.transform.rotation =
                 Quaternion.Euler(_camPitch, _camYaw, _camRoll);
 
+            // WASD / Space / Ctrl — skalowane przez _flySpeed
             bool fast = Input.GetKey(KeyCode.LeftShift)
                       || Input.GetKey(KeyCode.RightShift);
             float spd = _flySpeed * dt * (fast ? 3.5f : 1f);
@@ -210,9 +201,14 @@ namespace GlideRail
             if (Input.GetKey(KeyCode.S)) tf.position -= tf.forward * spd;
             if (Input.GetKey(KeyCode.A)) tf.position -= tf.right * spd;
             if (Input.GetKey(KeyCode.D)) tf.position += tf.right * spd;
-            if (Input.GetKey(KeyCode.Space)) tf.position += Vector3.up * spd;
+
+            // Space/Ctrl — ruch pionowy, też skalowany przez _flySpeed
+            // (użytkownik chciał żeby sens wpływał też na te osie —
+            //  mnożymy przez _flySens jako drugi wymiar kontroli)
+            float vertSpd = spd * _flySens;
+            if (Input.GetKey(KeyCode.Space)) tf.position += Vector3.up * vertSpd;
             if (Input.GetKey(KeyCode.LeftControl)
-             || Input.GetKey(KeyCode.RightControl)) tf.position -= Vector3.up * spd;
+             || Input.GetKey(KeyCode.RightControl)) tf.position -= Vector3.up * vertSpd;
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -272,7 +268,7 @@ namespace GlideRail
             RefreshDebugVisuals();
             _panel?.OnKeyframesChanged();
             GlideRailPlugin.Log.Msg(
-                $"[GlideRail] KF #{_keyframes.Count} added  " +
+                $"[GlideRail] KF #{_keyframes.Count} added " +
                 $"({_mainCam.transform.position.x:F1}, " +
                 $"{_mainCam.transform.position.y:F1}, " +
                 $"{_mainCam.transform.position.z:F1})");
@@ -309,6 +305,8 @@ namespace GlideRail
             _panel?.OnKeyframesChanged();
         }
 
+        public void TogglePanel() => _panel?.Toggle();
+
         // ═════════════════════════════════════════════════════════════════════
         // EXPORT / IMPORT
         // ═════════════════════════════════════════════════════════════════════
@@ -336,7 +334,7 @@ namespace GlideRail
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // CONSOLE STATUS
+        // STATUS
         // ═════════════════════════════════════════════════════════════════════
 
         public void PrintStatus(Action<string> print)
@@ -351,8 +349,8 @@ namespace GlideRail
             print($"  Keyframes   : {_keyframes.Count}");
             print($"  Playing     : {_playing}");
             print($"  Play time   : {_playT:F1}s / {_playDur:F0}s");
-            print($"  Fly speed   : {_flySpeed}");
-            print($"  Sensitivity : {_flySens:F1}");
+            print($"  Move speed  : {_flySpeed}");
+            print($"  Look sens   : {_flySens:F1}");
             print($"  Camera      : {(_mainCam != null ? _mainCam.name : "null")}");
             print($"  Brain       : {brainState}");
             print("════════════════════════════════════");
@@ -435,23 +433,8 @@ namespace GlideRail
             if (_brain != null) _brain.enabled = true;
         }
 
-        private void LockCursor()
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
-
-        private void RestoreCursor()
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
-
-        // ── Player input ──────────────────────────────────────────────────────
-
         private static void SetPlayerInput(bool enabled)
         {
-            // PlayerInput przez reflection — tak samo jak OXL
             try
             {
                 var piType = AppDomain.CurrentDomain.GetAssemblies()
@@ -467,7 +450,6 @@ namespace GlideRail
 
                 var raw = UnityEngine.Object.FindObjectOfType(
                     Il2CppInterop.Runtime.Il2CppType.From(piType));
-
                 var comp = raw?.TryCast<UnityEngine.Behaviour>();
                 if (comp != null) comp.enabled = enabled;
             }

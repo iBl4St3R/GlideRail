@@ -20,18 +20,43 @@ namespace GlideRail
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
             if (!FrameworkAPI.IsReady) return;
-
-            // GlideRail działa w każdej scenie z kamerą
-            // Na razie uruchamiamy tylko w garażu, rozszerzymy później
             if (!sceneName.ToLower().Contains("garage")) return;
+
+            // Hook CursorManager — tak samo jak OXL
+            CursorManager.OnCursorShow -= OnCursorShow;
+            CursorManager.OnCursorHide -= OnCursorHide;
+            CursorManager.OnCursorShow += OnCursorShow;
+            CursorManager.OnCursorHide += OnCursorHide;
 
             _session?.Shutdown();
             _session = new GlideRailSession();
             _session.Initialize();
 
             TryRegisterConsole();
+        }
 
-            Log.Msg($"[GlideRail] Session started in scene: {sceneName}");
+        private static void OnCursorShow()
+        {
+            try
+            {
+                if (Il2CppCMS.Core.GameMode.Get().currentMode != Il2Cpp.gameMode.UI)
+                    Il2CppCMS.Core.GameMode.Get().SetCurrentMode(Il2Cpp.gameMode.UI);
+            }
+            catch { }
+        }
+
+        private void OnCursorHide()
+        {
+            try
+            {
+                // Jeśli GlideRail aktywnie leci — nie przywracaj Garage
+                // (kursor schowany ale panel nadal przejął kamerę)
+                if (_session != null && _session.IsFlyActive) return;
+
+                if (Il2CppCMS.Core.GameMode.Get().currentMode == Il2Cpp.gameMode.UI)
+                    Il2CppCMS.Core.GameMode.Get().SetCurrentMode(Il2Cpp.gameMode.Garage);
+            }
+            catch { }
         }
 
         public override void OnSceneWasUnloaded(int buildIndex, string sceneName)

@@ -23,6 +23,9 @@ namespace GlideRail
         private UILabelHandle _lblSnsVal;
         private UILabelHandle _lblProgress;
 
+        // Przycisk kursora — aktualizowany live bez rebuildu
+        private UIButtonHandle _btnCursorToggle;
+
         // ── Paleta ────────────────────────────────────────────────────────────
         private static readonly Color CB = new Color(0.04f, 0.05f, 0.09f, 0.97f);
         private static readonly Color CBRD = new Color(0.28f, 0.48f, 0.90f, 0.55f);
@@ -38,6 +41,7 @@ namespace GlideRail
         private static readonly Color CKFX = new Color(0.38f, 0.07f, 0.07f, 1.00f);
         private static readonly Color CFLYB = new Color(0.38f, 0.68f, 1.00f, 1.00f);
         private static readonly Color CUIM = new Color(0.70f, 0.45f, 0.10f, 1.00f);
+        private static readonly Color CFLYG = new Color(0.10f, 0.22f, 0.14f, 1.00f);
 
         private static readonly Color KF_CYAN = new Color(0.07f, 0.22f, 0.40f, 1f);
         private static readonly Color KF_MAG = new Color(0.26f, 0.08f, 0.30f, 1f);
@@ -70,18 +74,14 @@ namespace GlideRail
             _panel = null;
         }
 
-        /// <summary>
-        /// Toggle widoczności panelu.
-        /// Otwarcie → przejmuje kamerę. Zamknięcie → oddaje graczowi.
-        /// </summary>
         public void Toggle()
         {
             _panelVisible = !_panelVisible;
 
             if (_panelVisible)
-                _session.OnPanelOpened();   // przejmij kamerę
+                _session.OnPanelOpened();
             else
-                _session.OnPanelClosed();   // oddaj graczowi
+                _session.OnPanelClosed();
 
             if (_panel == null)
             {
@@ -110,13 +110,21 @@ namespace GlideRail
             _lblHint?.SetColor(COK);
         }
 
+        /// <summary>
+        /// Aktualizuje przycisk i hint live — bez pełnego rebuildu.
+        /// To jest klucz do naprawienia buga kursora.
+        /// </summary>
         public void OnCursorModeChanged(bool uiMode)
         {
+            // Hint bar
             _lblHint?.SetText(uiMode
                 ? "UI MODE  —  kursor wolny, używaj panelu  (F9 = wróć do lotu)"
                 : "FLY MODE  —  mysz steruje kamerą  (F9 = kursor)");
             _lblHint?.SetColor(uiMode ? CWRN : CFLYB);
-            _rebuildPending = true;   // przebuduj by przycisk zmienił kolor
+
+            // Przycisk — live update, BEZ _rebuildPending
+            _btnCursorToggle?.SetText(uiMode ? "🖱  UI Mode" : "🎮  Fly Mode");
+            _btnCursorToggle?.SetBgColor(uiMode ? CUIM : CFLYG);
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -140,7 +148,6 @@ namespace GlideRail
 
             var p = UIPanel.Create("GlideRail", PANEL_X, panY, sw - 16, panH);
 
-            // ── Zamknij = oddaj kontrolę graczowi ─────────────────────────────
             p.AddTitleButton("✕", () =>
             {
                 _panelVisible = false;
@@ -157,12 +164,13 @@ namespace GlideRail
 
             // ── HINT BAR ─────────────────────────────────────────────────────
             p.AddSpace(2f);
+            bool uiMode = _session.IsUIMode;
             _lblHint = p.AddRow(15f, 2f).AddLabel(
                 "WASD = ruch   Mouse = widok   Q/E = roll   " +
                 "Shift = szybko   Space/Ctrl = góra/dół   " +
-                "F5 = add KF   F6 = usuń ostatni   F9 = kursor",
+                "F5 = add KF   F6 = usuń ostatni   F9 = cursor",
                 (float)(sw - 40),
-                _session.IsUIMode ? CWRN : CFLYB);
+                uiMode ? CWRN : CFLYB);
             _lblHint.SetFontSize(10);
 
             p.AddSeparator();
@@ -198,13 +206,13 @@ namespace GlideRail
         {
             var rc = p.AddRow(30f, 5f);
 
-            // ── UI Mode toggle (F9) ───────────────────────────────────────────
+            // ── Cursor toggle ─────────────────────────────────────────────────
             bool uiMode = _session.IsUIMode;
-            rc.AddButton(
+            _btnCursorToggle = rc.AddButton(
                 uiMode ? "🖱  UI Mode" : "🎮  Fly Mode",
-                90f,
+                92f,
                 () => _session.ToggleCursor(),
-                uiMode ? CUIM : new Color(0.10f, 0.22f, 0.14f, 1f));
+                uiMode ? CUIM : CFLYG);
 
             rc.AddLabel("│", 10f, CDIM);
 
