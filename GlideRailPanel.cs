@@ -130,14 +130,12 @@ namespace GlideRail
         /// </summary>
         public void OnCursorModeChanged(bool uiMode)
         {
-            // Hint bar
             _lblHint?.SetText(uiMode
                 ? "UI MODE  —  kursor wolny, używaj panelu  (F9 = wróć do lotu)"
                 : "FLY MODE  —  mysz steruje kamerą  (F9 = kursor)");
             _lblHint?.SetColor(uiMode ? CWRN : CFLYB);
 
-            // Przycisk — live update, BEZ _rebuildPending
-            _btnCursorToggle?.SetText(uiMode ? "🖱  UI Mode" : "🎮  Fly Mode");
+            _btnCursorToggle?.SetText(uiMode ? "🖱  UI Mode [F9]" : "🎮  Fly Mode [F9]");
             _btnCursorToggle?.SetBgColor(uiMode ? CUIM : CFLYG);
         }
 
@@ -230,10 +228,10 @@ namespace GlideRail
             // ── Cursor toggle ─────────────────────────────────────────────────
             bool uiMode = _session.IsUIMode;
             _btnCursorToggle = rc.AddButton(
-                uiMode ? "🖱  UI Mode" : "🎮  Fly Mode",
-                92f,
-                () => _session.ToggleCursor(),
-                uiMode ? CUIM : CFLYG);
+            uiMode ? "🖱  UI Mode [F9]" : "🎮  Fly Mode [F9]",
+            120f,
+            () => _session.ToggleCursor(),
+            uiMode ? CUIM : CFLYG);
 
             rc.AddLabel("│", 10f, CDIM);
 

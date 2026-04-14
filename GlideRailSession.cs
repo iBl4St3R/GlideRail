@@ -9,7 +9,8 @@ namespace GlideRail
 {
     public class GlideRailSession
     {
-        
+        // ── Nowe pole ─────────────────────────────────────────────────────────────
+        private GameObject _cursorGO;
 
         // ── Kamera ────────────────────────────────────────────────────────────
         private GameObject _mainCam;
@@ -40,6 +41,15 @@ namespace GlideRail
         // ═════════════════════════════════════════════════════════════════════
         // LIFECYCLE
         // ═════════════════════════════════════════════════════════════════════
+
+        // ── Pomocnicze metody kursora ─────────────────────────────────────────────
+        private void SetCursorVisible(bool visible)
+        {
+            if (_cursorGO == null)
+                _cursorGO = GameObject.Find("!!UI/CanvasMouse/Cursor");
+            if (_cursorGO != null)
+                _cursorGO.SetActive(visible);
+        }
 
         public void Initialize()
         {
@@ -72,6 +82,19 @@ namespace GlideRail
         {
             if (!_flyActive) return;
 
+            // Wymuszaj GameMode.UI co klatkę
+            try
+            {
+                if (Il2CppCMS.Core.GameMode.Get().currentMode != Il2Cpp.gameMode.UI)
+                    Il2CppCMS.Core.GameMode.Get().SetCurrentMode(Il2Cpp.gameMode.UI);
+            }
+            catch { }
+
+            // W Fly Mode wymuszaj niewidoczność kursora co klatkę
+            // — gra może go przywracać przez Cursor3D.ShowCursor()
+            if (!_uiMode)
+                SetCursorVisible(false);
+
             HandleHotkeys();
 
             if (_playing)
@@ -100,10 +123,8 @@ namespace GlideRail
             _flyActive = true;
             _uiMode = true;
 
-            _cursorRequested = true;
-            CursorManager.Request();
-
-            // ← NOWE: panel był zbudowany z _uiMode=false, sync go teraz
+            Il2CppCMS.Core.GameMode.Get().SetCurrentMode(Il2Cpp.gameMode.UI);
+            SetCursorVisible(true);
             _panel?.OnCursorModeChanged(_uiMode);
         }
 
@@ -117,20 +138,14 @@ namespace GlideRail
 
         private void ReturnControlToPlayer()
         {
-            // Najpierw sygnalizuj że już nie lecimy
             _flyActive = false;
             _playing = false;
             _uiMode = false;
 
-            // Teraz Release — OnCursorHide zobaczy IsFlyActive=false → ustawi GameMode.Garage
-            if (_cursorRequested)
-            {
-                _cursorRequested = false;
-                CursorManager.Release();
-            }
-
-            RestoreBrain();
+            Il2CppCMS.Core.GameMode.Get().SetCurrentMode(Il2Cpp.gameMode.Garage);
+            SetCursorVisible(true);
             SetPlayerInput(true);
+            RestoreBrain();
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -142,21 +157,16 @@ namespace GlideRail
             if (!_flyActive) return;
             _uiMode = !_uiMode;
 
+            // GameMode.UI zostaje zawsze — tylko kursor i input się zmieniają
             if (_uiMode)
             {
-                // Fly → UI: pokaż kursor
-                _cursorRequested = true;
-                CursorManager.Request();
+                SetPlayerInput(false);
+                SetCursorVisible(true);
             }
             else
             {
-                // UI → Fly: schowaj kursor
-                // OnCursorHide NIE przełączy GameMode bo IsFlyActive=true
-                if (_cursorRequested)
-                {
-                    _cursorRequested = false;
-                    CursorManager.Release();
-                }
+                SetPlayerInput(true);
+                SetCursorVisible(false);
             }
 
             _panel?.OnCursorModeChanged(_uiMode);
@@ -171,6 +181,85 @@ namespace GlideRail
             if (Input.GetKeyDown(KeyCode.F5)) AddKeyframe();
             if (Input.GetKeyDown(KeyCode.F6)) RemoveLastKeyframe();
             if (Input.GetKeyDown(KeyCode.F9)) ToggleCursor();
+
+            // Zawsze gdy panel żyje — ostrzeż o zablokowanych klawiszach
+            CheckBlockedKeys();
+        }
+
+        private static readonly KeyCode[] FLY_ALLOWED = new[]
+{
+    KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D,
+    KeyCode.Q, KeyCode.E,
+    KeyCode.Space, KeyCode.LeftControl, KeyCode.RightControl,
+    KeyCode.LeftShift, KeyCode.RightShift,
+    KeyCode.LeftAlt,
+    KeyCode.F5, KeyCode.F6, KeyCode.F9,
+    KeyCode.Mouse0  // ← lewy przycisk myszy
+};
+        private float _hintCooldown = 0f;
+
+
+        private void CheckBlockedKeys()
+        {
+            _hintCooldown -= Time.deltaTime;
+
+            // Nie spamuj gdy konsola jest otwarta
+            if (IsConsoleVisible()) return;
+
+            // Sprawdź mysz — tylko lewy przycisk dozwolony
+            if (Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2))
+            {
+                ShowBlockedHint();
+                return;
+            }
+
+            foreach (KeyCode kc in System.Enum.GetValues(typeof(KeyCode)))
+            {
+                if (!Input.GetKeyDown(kc)) continue;
+                if (System.Array.IndexOf(FLY_ALLOWED, kc) >= 0) continue;
+                ShowBlockedHint();
+                return;
+            }
+        }
+
+        private static bool IsConsoleVisible()
+        {
+            try
+            {
+                var apiType = AppDomain.CurrentDomain.GetAssemblies()
+                    .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
+                    .FirstOrDefault(t => t.FullName == "CMS2026SimpleConsole.ConsolePlugin");
+
+                if (apiType == null) return false;
+
+                var comp = apiType.GetProperty("ConsoleComponent",
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.Static)?.GetValue(null);
+
+                if (comp == null) return false;
+
+                var renderer = comp.GetType()
+                    .GetProperty("Renderer")?.GetValue(comp);
+
+                return (bool)(renderer?.GetType()
+                    .GetProperty("IsVisible")?.GetValue(renderer) ?? false);
+            }
+            catch { return false; }
+        }
+
+
+        private void ShowBlockedHint()
+        {
+            if (_hintCooldown > 0f) return;
+            _hintCooldown = 3f;
+
+            try
+            {
+                Il2CppCMS.UI.UIManager.Get().ShowPopup(
+                    "<color=#ff4040>Exit GlideRail to use game functions</color>",
+                    Il2Cpp.PopupType.Normal);
+            }
+            catch { }
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -194,9 +283,8 @@ namespace GlideRail
                 Quaternion.Euler(_camPitch, _camYaw, _camRoll);
 
             // WASD / Space / Ctrl — skalowane przez _flySpeed
-            bool fast = Input.GetKey(KeyCode.LeftShift)
-                      || Input.GetKey(KeyCode.RightShift);
-            float spd = _flySpeed * dt * (fast ? 3.5f : 1f);
+            bool fast = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            float spd = _flySpeed * dt * _flySens * (fast ? 3.5f : 1f);  
             var tf = _mainCam.transform;
 
             if (Input.GetKey(KeyCode.W)) tf.position += tf.forward * spd;
@@ -204,10 +292,10 @@ namespace GlideRail
             if (Input.GetKey(KeyCode.A)) tf.position -= tf.right * spd;
             if (Input.GetKey(KeyCode.D)) tf.position += tf.right * spd;
 
-            // Space/Ctrl — ruch pionowy, też skalowany przez _flySpeed
-            // (użytkownik chciał żeby sens wpływał też na te osie —
-            //  mnożymy przez _flySens jako drugi wymiar kontroli)
-            float vertSpd = spd * _flySens;
+            if (Input.GetKey(KeyCode.Q)) _camRoll += 55f * dt * _flySens;
+            if (Input.GetKey(KeyCode.E)) _camRoll -= 55f * dt * _flySens;
+
+            float vertSpd = spd;  // już zawiera _flySens
             if (Input.GetKey(KeyCode.Space)) tf.position += Vector3.up * vertSpd;
             if (Input.GetKey(KeyCode.LeftControl)
              || Input.GetKey(KeyCode.RightControl)) tf.position -= Vector3.up * vertSpd;
@@ -472,28 +560,57 @@ namespace GlideRail
 
         private static void SetPlayerInput(bool enabled)
         {
+            // ── PlayerInput component ─────────────────────────────────────────────
             try
             {
                 var piType = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a =>
-                    {
-                        try { return a.GetTypes(); }
-                        catch { return Type.EmptyTypes; }
-                    })
-                    .FirstOrDefault(t =>
-                        t.FullName == "Il2CppCMS.Player.Controller.PlayerInput");
+                    .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
+                    .FirstOrDefault(t => t.FullName == "Il2CppCMS.Player.Controller.PlayerInput");
 
-                if (piType == null) return;
-
-                var raw = UnityEngine.Object.FindObjectOfType(
-                    Il2CppInterop.Runtime.Il2CppType.From(piType));
-                var comp = raw?.TryCast<UnityEngine.Behaviour>();
-                if (comp != null) comp.enabled = enabled;
+                if (piType != null)
+                {
+                    var raw = UnityEngine.Object.FindObjectOfType(
+                        Il2CppInterop.Runtime.Il2CppType.From(piType));
+                    var comp = raw?.TryCast<UnityEngine.Behaviour>();
+                    if (comp != null) comp.enabled = enabled;
+                }
             }
             catch (Exception ex)
             {
-                GlideRailPlugin.Log.Warning(
-                    $"[GlideRail] SetPlayerInput({enabled}): {ex.Message}");
+                GlideRailPlugin.Log.Warning($"[GlideRail] SetPlayerInput({enabled}): {ex.Message}");
+            }
+
+            // ── InputActionAsset — Gameplay + UI Common ───────────────────────────
+            try
+            {
+                var asm = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "Unity.InputSystem");
+                if (asm == null) return;
+
+                var assetType = asm.GetType("UnityEngine.InputSystem.InputActionAsset");
+                var il2Type = Il2CppInterop.Runtime.Il2CppType.From(assetType);
+                var assets = UnityEngine.Resources.FindObjectsOfTypeAll(il2Type);
+
+                // Blokujemy mapy w assets[0] — główny InputActions gry
+                if (assets.Length == 0) return;
+                var asset = Activator.CreateInstance(assetType, new object[] { assets[0].Pointer });
+                var maps = assetType.GetProperty("actionMaps").GetValue(asset);
+                int count = (int)maps.GetType().GetProperty("Count").GetValue(maps);
+                var indexer = maps.GetType().GetProperty("Item");
+
+                var toBlock = new HashSet<string> { "Gameplay", "UI Common" };
+
+                for (int i = 0; i < count; i++)
+                {
+                    var map = indexer.GetValue(maps, new object[] { i });
+                    var name = (string)map.GetType().GetProperty("name").GetValue(map);
+                    if (!toBlock.Contains(name)) continue;
+                    map.GetType().GetMethod(enabled ? "Enable" : "Disable").Invoke(map, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                GlideRailPlugin.Log.Warning($"[GlideRail] InputActionMaps({enabled}): {ex.Message}");
             }
         }
     }

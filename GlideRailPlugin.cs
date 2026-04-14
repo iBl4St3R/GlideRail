@@ -22,11 +22,7 @@ namespace GlideRail
             if (!FrameworkAPI.IsReady) return;
             if (!sceneName.ToLower().Contains("garage")) return;
 
-            // Hook CursorManager — tak samo jak OXL
-            CursorManager.OnCursorShow -= OnCursorShow;
-            CursorManager.OnCursorHide -= OnCursorHide;
-            CursorManager.OnCursorShow += OnCursorShow;
-            CursorManager.OnCursorHide += OnCursorHide;
+            // CursorManager już nie potrzebny — GlideRail zarządza kursorem bezpośrednio
 
             _session?.Shutdown();
             _session = new GlideRailSession();
