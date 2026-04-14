@@ -60,6 +60,14 @@ namespace GlideRail
         private static readonly Color KF_CYAN = new Color(0.07f, 0.22f, 0.40f, 1f);
         private static readonly Color KF_MAG = new Color(0.26f, 0.08f, 0.30f, 1f);
 
+
+        private GlideTimeline _timeline;
+
+        // ── Timeline constants (muszą zgadzać się z GlideTimeline) ───────────
+        private const float ROW_H = 26f;
+        private const float SEP_H = 2f;
+        private const float SCROLLBAR_H = 14f;
+
         private const float TILE_W = 215f;
         private const float TILE_H = 32f;
         private const float TILE_GAP = 4f;
@@ -112,10 +120,18 @@ namespace GlideRail
         {
             RefreshKfLabel();
             _rebuildPending = true;
+            _timeline?.Refresh();
         }
 
         public void OnPlaybackTick(float t, float dur)
-            => _lblProgress?.SetText($"▶  {t:F1}s / {dur:F0}s");
+        {
+            _lblProgress?.SetText($"▶  {t:F1}s / {dur:F0}s");
+            int kfIdx = Mathf.Clamp(
+                (int)(_session.PlaybackTime / _session.PlayDur
+                    * _session.Keyframes.Count), 0,
+                _session.Keyframes.Count - 1);
+            _timeline?.SetActiveKf(kfIdx);
+        }
 
         public void OnPlaybackEnd()
         {
@@ -149,14 +165,11 @@ namespace GlideRail
 
             int sw = Screen.width;
             int sh = Screen.height;
-
             int kfCount = _session.Keyframes.Count;
-            int perRow = Math.Max(1, (int)((sw - 55f) / (TILE_W + 5f)));
-            int kfRows = kfCount > 0
-                ? (int)Math.Ceiling((double)kfCount / perRow) : 0;
-
-            int panH = 148 + (kfRows > 0 ? 20 + (int)(kfRows * (TILE_H + TILE_GAP)) : 0);
+            const int panH = 200;  // stała wysokość
             int panY = sh - panH - (int)PANEL_BOT_OFFSET;
+
+
 
             var p = UIPanel.Create("GlideRail", PANEL_X, panY, sw - 16, panH);
 
@@ -174,6 +187,14 @@ namespace GlideRail
 
             StylePanel(p);
 
+            float timelineH = ROW_H * 2 + SEP_H + SCROLLBAR_H + 4f;
+            float timelineTop = panH - timelineH - 8f; // było -24f
+
+
+            _timeline = new GlideTimeline(_session, p);
+            _timeline.Build(sw - 16, timelineTop);
+
+
             // ── HINT BAR ─────────────────────────────────────────────────────
             p.AddSpace(2f);
             bool uiMode = _session.IsUIMode;
@@ -189,13 +210,13 @@ namespace GlideRail
 
             BuildControlsRow(p, sw);
 
-            if (kfCount > 0)
-                BuildKfTiles(p, sw, perRow);
 
             p.AddSpace(3f);
 
             p.SetUpdateCallback(dt =>
             {
+                _timeline?.OnUpdate();  // ← dodaj tutaj
+
                 if (_rebuildPending)
                 {
                     _rebuildPending = false;
@@ -339,54 +360,9 @@ namespace GlideRail
             _lblProgress.SetFontSize(10);
         }
 
-        // ── KF Tiles ──────────────────────────────────────────────────────────
+        
 
-        private void BuildKfTiles(UIPanel p, int sw, int perRow)
-        {
-            p.AddSeparator();
-
-            var lhdr = p.AddRow(16f, 2f).AddLabel(
-                $" Keyframes ({_session.Keyframes.Count})" +
-                "  ·  click = skocz  ·  ✕ = usuń  ·  cyan → magenta = kierunek",
-                (float)(sw - 44), CDIM);
-            lhdr.SetFontSize(10);
-
-            p.AddSpace(2f);
-
-            int kfCount = _session.Keyframes.Count;
-
-            for (int rowStart = 0; rowStart < kfCount; rowStart += perRow)
-            {
-                var tileRow = p.AddRow(TILE_H + 4f, 4f);
-                int rowEnd = Math.Min(rowStart + perRow, kfCount);
-
-                for (int ki = rowStart; ki < rowEnd; ki++)
-                {
-                    int capI = ki;
-                    var kf = _session.Keyframes[ki];
-                    float tf = kfCount > 1 ? (float)ki / (kfCount - 1) : 0f;
-                    var tileColor = Color.Lerp(KF_CYAN, KF_MAG, tf);
-
-                    string lbl = $" #{ki + 1}" +
-                                 $"  {kf.Position.x:F0}" +
-                                 $" {kf.Position.y:F0}" +
-                                 $" {kf.Position.z:F0}";
-
-                    if (Math.Abs(kf.SpeedMultiplier - 1f) > 0.05f)
-                        lbl += $"  ×{kf.SpeedMultiplier:F1}";
-
-                    tileRow.AddButton(lbl, TILE_W - 30f, () =>
-                    {
-                        _session.JumpToKeyframe(capI);
-                        _lblHint?.SetText($"Skoczono do KF #{capI + 1}");
-                        _lblHint?.SetColor(CVAL);
-                    }, tileColor);
-
-                    tileRow.AddButton("✕", 26f,
-                        () => _session.RemoveKeyframe(capI), CKFX);
-                }
-            }
-        }
+        
 
         // ── Helpers ───────────────────────────────────────────────────────────
 

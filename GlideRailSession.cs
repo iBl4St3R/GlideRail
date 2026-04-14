@@ -307,7 +307,10 @@ namespace GlideRail
 
         private void TickPlayback(float dt)
         {
-            _playT += dt;
+            float speed = GlideSpline.SampleSpeed(_keyframes,
+                Mathf.Clamp01(_playT / _playDur));
+            _playT += dt * speed;  // ← mnoży dt przez speed z KF
+
             float nt = Mathf.Clamp01(_playT / _playDur);
             var (pos, rot) = GlideSpline.Sample(_keyframes, nt);
 
@@ -345,6 +348,21 @@ namespace GlideRail
         // ═════════════════════════════════════════════════════════════════════
         // KEYFRAME API
         // ═════════════════════════════════════════════════════════════════════
+        public void SetKeyframeSpeed(int index, float speed)
+        {
+            if (index < 0 || index >= _keyframes.Count) return;
+            _keyframes[index].SpeedMultiplier = speed;
+        }
+
+        public void ReplaceKeyframe(int index)
+        {
+            if (_mainCam == null || index < 0 || index >= _keyframes.Count) return;
+            _keyframes[index].Position = _mainCam.transform.position;
+            _keyframes[index].Rotation = _mainCam.transform.rotation;
+            RefreshDebugVisuals();
+            GlideRailPlugin.Log.Msg($"[GlideRail] KF #{index + 1} replaced");
+        }
+
 
         public void AddKeyframe()
         {
