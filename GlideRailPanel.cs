@@ -246,7 +246,7 @@ namespace GlideRail
 
         private void BuildControlsRow(UIPanel p, int sw)
         {
-            var rc = p.AddRow(36f, 5f);
+            var rc = p.AddRow(30f, 5f);
 
             // ── Cursor toggle ─────────────────────────────────────────────────
             bool uiMode = _session.IsUIMode;
