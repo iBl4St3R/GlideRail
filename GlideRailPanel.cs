@@ -199,11 +199,11 @@ namespace GlideRail
             p.AddSpace(2f);
             bool uiMode = _session.IsUIMode;
             _lblHint = p.AddRow(15f, 2f).AddLabel(
-                "WASD = ruch   Mouse = widok   Q/E = roll   " +
-                "Shift = szybko   Space/Ctrl = góra/dół   " +
-                "F5 = add KF   F6 = usuń ostatni   F9 = cursor",
-                (float)(sw - 40),
-                uiMode ? CWRN : CFLYB);
+            "WASD = ruch   Mouse = widok   Q/E = roll   " +
+            "R = góra   F = dół   " +
+            "F5 = add KF   F6 = usuń ostatni   F9 = cursor",
+            (float)(sw - 40),
+            uiMode ? CWRN : CFLYB);
             _lblHint.SetFontSize(10);
 
             p.AddSeparator();
@@ -246,7 +246,7 @@ namespace GlideRail
 
         private void BuildControlsRow(UIPanel p, int sw)
         {
-            var rc = p.AddRow(30f, 5f);
+            var rc = p.AddRow(36f, 5f);
 
             // ── Cursor toggle ─────────────────────────────────────────────────
             bool uiMode = _session.IsUIMode;
@@ -281,46 +281,46 @@ namespace GlideRail
 
             rc.AddLabel("│", 10f, CDIM);
 
-            // ── Path duration ─────────────────────────────────────────────────
-            rc.AddLabel("Path:", 32f, CDIM).SetFontSize(10);
-            _lblDurVal = rc.AddLabel($"{_session.PlayDur:F0}s", 30f, CVAL);
-            _lblDurVal.SetFontSize(11);
-            rc.AddButton("−", 20f, () =>
+            // ── Path duration ─────────────────────────────────────────────────────────
+            rc.AddLabel("Total Time:", 80f, CDIM).SetFontSize(14);
+            _lblDurVal = rc.AddLabel($"{_session.PlayDur:F0}s", 40f, CVAL);
+            _lblDurVal.SetFontSize(15);
+            rc.AddButton("−", 24f, () =>
             {
                 _session.PlayDur -= 1f;
                 _lblDurVal?.SetText($"{_session.PlayDur:F0}s");
             }, CMN);
-            rc.AddButton("+", 20f, () =>
+            rc.AddButton("+", 24f, () =>
             {
                 _session.PlayDur += 1f;
                 _lblDurVal?.SetText($"{_session.PlayDur:F0}s");
             }, CPL);
 
-            // ── Move speed ────────────────────────────────────────────────────
-            rc.AddLabel("Move:", 36f, CDIM).SetFontSize(10);
-            _lblSpdVal = rc.AddLabel($"{_session.FlySpeed:F0}", 26f, CVAL);
-            _lblSpdVal.SetFontSize(11);
-            rc.AddButton("−", 20f, () =>
+            // ── Move speed ────────────────────────────────────────────────────────────
+            rc.AddLabel("Move:", 52f, CDIM).SetFontSize(14);
+            _lblSpdVal = rc.AddLabel($"{_session.FlySpeed:F0}", 36f, CVAL);
+            _lblSpdVal.SetFontSize(15);
+            rc.AddButton("−", 24f, () =>
             {
                 _session.FlySpeed -= 2f;
                 _lblSpdVal?.SetText($"{_session.FlySpeed:F0}");
             }, CMN);
-            rc.AddButton("+", 20f, () =>
+            rc.AddButton("+", 24f, () =>
             {
                 _session.FlySpeed += 2f;
                 _lblSpdVal?.SetText($"{_session.FlySpeed:F0}");
             }, CPL);
 
-            // ── Look sensitivity ──────────────────────────────────────────────
-            rc.AddLabel("Look:", 36f, CDIM).SetFontSize(10);
-            _lblSnsVal = rc.AddLabel($"{_session.FlySens:F1}", 26f, CVAL);
-            _lblSnsVal.SetFontSize(11);
-            rc.AddButton("−", 20f, () =>
+            // ── Look sensitivity ──────────────────────────────────────────────────────
+            rc.AddLabel("Look:", 52f, CDIM).SetFontSize(14);
+            _lblSnsVal = rc.AddLabel($"{_session.FlySens:F1}", 36f, CVAL);
+            _lblSnsVal.SetFontSize(15);
+            rc.AddButton("−", 24f, () =>
             {
                 _session.FlySens -= 0.2f;
                 _lblSnsVal?.SetText($"{_session.FlySens:F1}");
             }, CMN);
-            rc.AddButton("+", 20f, () =>
+            rc.AddButton("+", 24f, () =>
             {
                 _session.FlySens += 0.2f;
                 _lblSnsVal?.SetText($"{_session.FlySens:F1}");
@@ -328,12 +328,11 @@ namespace GlideRail
 
             rc.AddLabel("│", 10f, CDIM);
 
-            // ── KF count ─────────────────────────────────────────────────────
+            // ── KF count ─────────────────────────────────────────────────────────────
             int kfc = _session.Keyframes.Count;
-            _lblKfCount = rc.AddLabel(
-                $" KF: {kfc} ", 56f,
-                kfc >= 2 ? COK : kfc == 1 ? CWRN : CDIM);
-            _lblKfCount.SetFontSize(12);
+            _lblKfCount = rc.AddLabel($" KF: {kfc} ", 76f,
+            kfc >= 2 ? COK : kfc == 1 ? CWRN : CDIM);
+            _lblKfCount.SetFontSize(16);
 
             rc.AddButton("[F5]  + KF", 86f, () =>
             {
