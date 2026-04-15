@@ -147,8 +147,8 @@ namespace GlideRail
         public void OnCursorModeChanged(bool uiMode)
         {
             _lblHint?.SetText(uiMode
-                ? "UI MODE  —  kursor wolny, używaj panelu  (F9 = wróć do lotu)"
-                : "FLY MODE  —  mysz steruje kamerą  (F9 = kursor)");
+                ? "UI MODE  —  cursor free, use the panel  (F9 = back to fly)"
+                : "FLY MODE  —  mouse controls camera  (F9 = cursor)");
             _lblHint?.SetColor(uiMode ? CWRN : CFLYB);
 
             _btnCursorToggle?.SetText(uiMode ? "🖱  UI Mode [F9]" : "🎮  Fly Mode [F9]");
@@ -199,9 +199,9 @@ namespace GlideRail
             p.AddSpace(2f);
             bool uiMode = _session.IsUIMode;
             _lblHint = p.AddRow(15f, 2f).AddLabel(
-            "WASD = ruch   Mouse = widok   Q/E = roll   " +
-            "R = góra   F = dół   " +
-            "F5 = add KF   F6 = usuń ostatni   F9 = cursor",
+            "WASD = move   Mouse = look   Q/E = roll   " +
+            "R = up   F = down   " +
+            "F5 = add KF   F6 = remove last   F9 = cursor",
             (float)(sw - 40),
             uiMode ? CWRN : CFLYB);
             _lblHint.SetFontSize(10);
@@ -258,6 +258,17 @@ namespace GlideRail
 
             rc.AddLabel("│", 10f, CDIM);
 
+            // ── Cinematic Playback ────────────────────────────────────────────
+            rc.AddButton("🎬 Cinematic", 90f, () =>
+            {
+                if (_session.Keyframes.Count < 2)
+                {
+                    _lblHint?.SetText("Need at least 2 keyframes!");
+                    _lblHint?.SetColor(CWRN);
+                    return;
+                }
+                _session.StartCinematicPlay();
+            }, new Color(0.35f, 0.10f, 0.45f, 1f));
 
 
             // ── Playback ──────────────────────────────────────────────────────
@@ -265,19 +276,19 @@ namespace GlideRail
             {
                 if (_session.Keyframes.Count < 2)
                 {
-                    _lblHint?.SetText("Potrzebujesz co najmniej 2 keyframe'y!");
+                    _lblHint?.SetText("Need at least 2 keyframes!");
                     _lblHint?.SetColor(CWRN);
                     return;
                 }
                 _session.StartPlayback();
-                _lblHint?.SetText("Odtwarzanie ścieżki...");
+                _lblHint?.SetText("Playing path...");
                 _lblHint?.SetColor(COK);
             }, CGR);
 
             rc.AddButton("⏹  Stop", 66f, () =>
             {
                 _session.StopPlayback();
-                _lblHint?.SetText("Zatrzymano.");
+                _lblHint?.SetText(("Stopped."));
                 _lblHint?.SetColor(CDIM);
             }, CCL);
 
@@ -339,7 +350,7 @@ namespace GlideRail
             rc.AddButton("[F5]  + KF", 86f, () =>
             {
                 _session.AddKeyframe();
-                _lblHint?.SetText($"Keyframe #{_session.Keyframes.Count} dodany.");
+                _lblHint?.SetText($"Keyframe #{_session.Keyframes.Count} added.");
                 _lblHint?.SetColor(CVAL);
             }, CBL);
 
@@ -348,14 +359,14 @@ namespace GlideRail
                 if (_session.Keyframes.Count == 0) return;
                 _session.RemoveLastKeyframe();
                 _lblHint?.SetText(
-                    $"Ostatni KF usunięty. Pozostało: {_session.Keyframes.Count}");
+                    $"Last KF removed. Remaining: {_session.Keyframes.Count}");
                 _lblHint?.SetColor(CDIM);
             }, CCL);
 
             rc.AddButton("🗑 Clear All", 84f, () =>
             {
                 _session.ClearKeyframes();
-                _lblHint?.SetText("Wszystkie keyframe'y usunięte.");
+                _lblHint?.SetText("All keyframes cleared.");
                 _lblHint?.SetColor(CDIM);
             }, new Color(0.40f, 0.06f, 0.06f, 1f));
 
@@ -363,14 +374,14 @@ namespace GlideRail
 
             rc.AddButton("💾 Save", 76f, () =>
             {
-                _lblHint?.SetText("Otwieranie dialogu zapisu...");
+                _lblHint?.SetText("Opening save dialog...");
                 _lblHint?.SetColor(CDIM);
                 _session.SaveToFile(msg => { });  // hint przez _pendingHint w sesji
             }, new Color(0.10f, 0.25f, 0.40f, 1f));
 
             rc.AddButton("📂 Load", 76f, () =>
             {
-                _lblHint?.SetText("Otwieranie dialogu wczytywania...");
+                _lblHint?.SetText("Opening load dialog...");
                 _lblHint?.SetColor(CDIM);
                 _session.LoadFromFile(msg => { });  // hint przez _pendingHint w sesji
             }, new Color(0.25f, 0.15f, 0.38f, 1f));

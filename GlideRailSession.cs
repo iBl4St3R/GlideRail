@@ -140,7 +140,35 @@ namespace GlideRail
             _panel?.OnKeyframesChanged();
         }
 
+        private bool _cinematicMode = false;
 
+        public void StartCinematicPlay()
+        {
+            if (_keyframes.Count < 2) return;
+
+            _cinematicMode = true;
+
+            // Ukryj panel GlideRail — bez destroy
+            _panel?.SetPanelVisible(false);
+
+            // Ukryj UI gry
+            try { Il2CppCMS.UI.UIManager.Get().SetStatsUIActive(false); } catch { }
+
+            StartPlayback();
+        }
+
+        private void StopCinematicPlay()
+        {
+            _cinematicMode = false;
+
+            StopPlayback();
+
+            // Przywróć UI gry
+            try { Il2CppCMS.UI.UIManager.Get().SetStatsUIActive(true); } catch { }
+
+            // Przywróć panel GlideRail
+            _panel?.SetPanelVisible(true);
+        }
 
         // ═════════════════════════════════════════════════════════════════════
         // PANEL OPEN / CLOSE
@@ -222,7 +250,8 @@ namespace GlideRail
             if (Input.GetKeyDown(KeyCode.F5)) AddKeyframe();
             if (Input.GetKeyDown(KeyCode.F6)) RemoveLastKeyframe();
             if (Input.GetKeyDown(KeyCode.F9)) ToggleCursor();
-
+            if (_cinematicMode && Input.GetKeyDown(KeyCode.Escape))
+                StopCinematicPlay();
             CheckBlockedKeys();
         }
 
@@ -256,7 +285,8 @@ namespace GlideRail
     KeyCode.LeftAlt,
     KeyCode.F5, KeyCode.F6, KeyCode.F9,
     KeyCode.Mouse0,
-    KeyCode.Z, KeyCode.Y
+    KeyCode.Z, KeyCode.Y,
+    KeyCode.Escape
 };
         private float _hintCooldown = 0f;
 
@@ -384,9 +414,14 @@ namespace GlideRail
 
             if (nt >= 1f)
             {
-                _playing = false;
-                _debugRenderer?.SetVisible(true);
-                _panel?.OnPlaybackEnd();
+                if (_cinematicMode)
+                    StopCinematicPlay();
+                else
+                {
+                    _playing = false;
+                    _debugRenderer?.SetVisible(true);
+                    _panel?.OnPlaybackEnd();
+                }
             }
         }
 
@@ -578,7 +613,7 @@ namespace GlideRail
                 string path = GlideFileDialog.SaveDialog("Save GlideRail Path");
                 if (string.IsNullOrEmpty(path))
                 {
-                    _pendingHint = $"Saved: {Path.GetFileName(path)}";
+                    _pendingHint = "Save cancelled.";
                     onResult(_pendingHint);
                     return;
                 }

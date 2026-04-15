@@ -293,19 +293,19 @@ namespace GlideRail
 
             var btnRow = p.AddRow(26f, 4f);
 
-            btnRow.AddButton("Skocz", 72f, () =>
+            btnRow.AddButton("Jump", 72f, () =>
             {
                 _session.JumpToKeyframe(kfIndex);
                 FrameworkAPI.DestroyPanel(capName);
             }, new Color(0.10f, 0.18f, 0.38f, 1f));
 
-            btnRow.AddButton("Podmień", 72f, () =>
+            btnRow.AddButton("Replace", 72f, () =>
             {
                 _session.ReplaceKeyframe(kfIndex);
                 FrameworkAPI.DestroyPanel(capName);
             }, new Color(0.10f, 0.28f, 0.18f, 1f));
 
-            btnRow.AddButton("Usuń", 60f, () =>
+            btnRow.AddButton("Delete", 60f, () =>
             {
                 _session.RemoveKeyframe(kfIndex);
                 FrameworkAPI.DestroyPanel(capName);
