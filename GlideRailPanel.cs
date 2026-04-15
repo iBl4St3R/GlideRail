@@ -240,6 +240,8 @@ namespace GlideRail
             }
         }
 
+
+
         // ── Controls row ──────────────────────────────────────────────────────
 
         private void BuildControlsRow(UIPanel p, int sw)
@@ -360,11 +362,25 @@ namespace GlideRail
             _lblProgress.SetFontSize(10);
         }
 
-        
 
-        
+
+
 
         // ── Helpers ───────────────────────────────────────────────────────────
+
+        public enum HintType { Info, Warning, Ok }
+
+        public void ShowHint(string text, HintType type)
+        {
+            _lblHint?.SetText(text);
+            _lblHint?.SetColor(type switch
+            {
+                HintType.Warning => CWRN,
+                HintType.Ok => COK,
+                _ => CFLYB
+            });
+        }
+
 
         private static void StylePanel(UIPanel p)
         {

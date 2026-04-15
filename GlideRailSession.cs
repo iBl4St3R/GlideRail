@@ -9,8 +9,8 @@ namespace GlideRail
 {
     public class GlideRailSession
     {
-        // ── Nowe pole ─────────────────────────────────────────────────────────────
         private GameObject _cursorGO;
+        private readonly GlideHistory _history = new();
 
         // ── Kamera ────────────────────────────────────────────────────────────
         private GameObject _mainCam;
@@ -107,6 +107,20 @@ namespace GlideRail
                 TickFlyControls(Time.deltaTime);
         }
 
+        private void SaveSnapshot(string label)
+        {
+            _history.Push(new GlideSnapshot(_keyframes, _playDur, label));
+        }
+
+        private void ApplySnapshot(GlideSnapshot snap)
+        {
+            _keyframes.Clear();
+            _keyframes.AddRange(snap.Keyframes);
+            _playDur = snap.PlayDur;
+            RefreshDebugVisuals();
+            _panel?.OnKeyframesChanged();
+        }
+
         // ═════════════════════════════════════════════════════════════════════
         // PANEL OPEN / CLOSE
         // ═════════════════════════════════════════════════════════════════════
@@ -178,23 +192,50 @@ namespace GlideRail
 
         private void HandleHotkeys()
         {
+            bool ctrl = Input.GetKey(KeyCode.LeftControl)
+                     || Input.GetKey(KeyCode.RightControl);
+
+            if (ctrl && Input.GetKeyDown(KeyCode.Z)) DoUndo();
+            if (ctrl && Input.GetKeyDown(KeyCode.Y)) DoRedo();
+
             if (Input.GetKeyDown(KeyCode.F5)) AddKeyframe();
             if (Input.GetKeyDown(KeyCode.F6)) RemoveLastKeyframe();
             if (Input.GetKeyDown(KeyCode.F9)) ToggleCursor();
 
-            // Zawsze gdy panel żyje — ostrzeż o zablokowanych klawiszach
             CheckBlockedKeys();
+        }
+
+
+        private void DoUndo()
+        {
+            if (!_history.CanUndo) return;
+            string label = _history.UndoLabel;
+            var snap = _history.Undo(new GlideSnapshot(_keyframes, _playDur, ""));
+            if (snap == null) return;
+            ApplySnapshot(snap);
+            _panel?.ShowHint($"Undo: {label}", GlideRailPanel.HintType.Info);
+        }
+
+        private void DoRedo()
+        {
+            if (!_history.CanRedo) return;
+            string label = _history.RedoLabel;
+            var snap = _history.Redo(new GlideSnapshot(_keyframes, _playDur, ""));
+            if (snap == null) return;
+            ApplySnapshot(snap);
+            _panel?.ShowHint($"Redo: {label}", GlideRailPanel.HintType.Info);
         }
 
         private static readonly KeyCode[] FLY_ALLOWED = new[]
 {
     KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D,
     KeyCode.Q, KeyCode.E,
-    KeyCode.Space, KeyCode.LeftControl, KeyCode.RightControl,
-    KeyCode.LeftShift, KeyCode.RightShift,
+    KeyCode.R, KeyCode.F,
+    KeyCode.LeftControl, KeyCode.RightControl,
     KeyCode.LeftAlt,
     KeyCode.F5, KeyCode.F6, KeyCode.F9,
-    KeyCode.Mouse0  // ← lewy przycisk myszy
+    KeyCode.Mouse0,
+    KeyCode.Z, KeyCode.Y
 };
         private float _hintCooldown = 0f;
 
@@ -284,7 +325,8 @@ namespace GlideRail
 
             // WASD / Space / Ctrl — skalowane przez _flySpeed
             bool fast = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            float spd = _flySpeed * dt * _flySens * (fast ? 3.5f : 1f);  
+            float spd = _flySpeed * dt * _flySens * (fast ? 3.5f : 1f);
+
             var tf = _mainCam.transform;
 
             if (Input.GetKey(KeyCode.W)) tf.position += tf.forward * spd;
@@ -292,13 +334,9 @@ namespace GlideRail
             if (Input.GetKey(KeyCode.A)) tf.position -= tf.right * spd;
             if (Input.GetKey(KeyCode.D)) tf.position += tf.right * spd;
 
-            if (Input.GetKey(KeyCode.Q)) _camRoll += 55f * dt * _flySens;
-            if (Input.GetKey(KeyCode.E)) _camRoll -= 55f * dt * _flySens;
-
-            float vertSpd = spd;  // już zawiera _flySens
-            if (Input.GetKey(KeyCode.Space)) tf.position += Vector3.up * vertSpd;
-            if (Input.GetKey(KeyCode.LeftControl)
-             || Input.GetKey(KeyCode.RightControl)) tf.position -= Vector3.up * vertSpd;
+            float vertSpd = _flySpeed * dt * _flySens; // bez fast — Shift jest zajęty
+            if(Input.GetKey(KeyCode.R)) tf.position += Vector3.up * vertSpd;
+            if (Input.GetKey(KeyCode.F)) tf.position -= Vector3.up * vertSpd;
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -351,22 +389,25 @@ namespace GlideRail
         public void SetKeyframeSpeed(int index, float speed)
         {
             if (index < 0 || index >= _keyframes.Count) return;
+            SaveSnapshot($"Speed KF #{index + 1}");  // ← PRZED
             _keyframes[index].SpeedMultiplier = speed;
         }
+
 
         public void ReplaceKeyframe(int index)
         {
             if (_mainCam == null || index < 0 || index >= _keyframes.Count) return;
+            SaveSnapshot($"Replace KF #{index + 1}");  // ← PRZED
             _keyframes[index].Position = _mainCam.transform.position;
             _keyframes[index].Rotation = _mainCam.transform.rotation;
             RefreshDebugVisuals();
-            GlideRailPlugin.Log.Msg($"[GlideRail] KF #{index + 1} replaced");
         }
 
 
         public void AddKeyframe()
         {
             if (_mainCam == null) return;
+            SaveSnapshot($"Add KF #{_keyframes.Count + 1}"); 
             _keyframes.Add(new GlideKeyframe
             {
                 Position = _mainCam.transform.position,
@@ -385,6 +426,7 @@ namespace GlideRail
         public void RemoveLastKeyframe()
         {
             if (_keyframes.Count == 0) return;
+            SaveSnapshot($"Remove KF #{_keyframes.Count}");  // ← PRZED
             _keyframes.RemoveAt(_keyframes.Count - 1);
             RefreshDebugVisuals();
             _panel?.OnKeyframesChanged();
@@ -408,6 +450,8 @@ namespace GlideRail
 
         public void ClearKeyframes()
         {
+            if (_keyframes.Count == 0) return;
+            SaveSnapshot("Clear All");  
             _keyframes.Clear();
             RefreshDebugVisuals();
             _panel?.OnKeyframesChanged();

@@ -25,7 +25,6 @@ namespace GlideRail
         // ── Stan ──────────────────────────────────────────────────────────────
         private float _scrollX = 0f;   // offset w px
         private int _activeKf = -1;   // podświetlony KF podczas playback
-        private bool _ctrlHeld = false;
 
         // ── Inspektor ─────────────────────────────────────────────────────────
         private UIPanel _inspector = null;
