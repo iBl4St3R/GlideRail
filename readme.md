@@ -9,7 +9,7 @@ Record keyframe-based camera paths and play them back as smooth Catmull-Rom spli
 - Car Mechanic Simulator 2026 (Demo or Full)
 - MelonLoader v0.7.2+
 - _CMS2026_UITK_Framework v0.2.1+
-- CMS2026 Simple Console v1.2.0+ (optional, for export/import)
+- CMS2026 Simple Console v1.3.0+ 
 
 ## Installation
 
