@@ -258,6 +258,8 @@ namespace GlideRail
 
             rc.AddLabel("│", 10f, CDIM);
 
+
+
             // ── Playback ──────────────────────────────────────────────────────
             rc.AddButton("▶  Play", 76f, () =>
             {
@@ -357,12 +359,35 @@ namespace GlideRail
                 _lblHint?.SetColor(CDIM);
             }, new Color(0.40f, 0.06f, 0.06f, 1f));
 
+            rc.AddLabel("│", 10f, CDIM);
+
+            rc.AddButton("💾 Save", 76f, () =>
+            {
+                _lblHint?.SetText("Otwieranie dialogu zapisu...");
+                _lblHint?.SetColor(CDIM);
+                _session.SaveToFile(msg => { });  // hint przez _pendingHint w sesji
+            }, new Color(0.10f, 0.25f, 0.40f, 1f));
+
+            rc.AddButton("📂 Load", 76f, () =>
+            {
+                _lblHint?.SetText("Otwieranie dialogu wczytywania...");
+                _lblHint?.SetColor(CDIM);
+                _session.LoadFromFile(msg => { });  // hint przez _pendingHint w sesji
+            }, new Color(0.25f, 0.15f, 0.38f, 1f));
+
+
+
+
+
             _lblProgress = rc.AddLabel("", 108f, COK);
             _lblProgress.SetFontSize(10);
         }
 
 
-
+        public void SetPanelVisible(bool visible)
+        {
+            _panel?.SetVisible(visible);
+        }
 
 
         // ── Helpers ───────────────────────────────────────────────────────────

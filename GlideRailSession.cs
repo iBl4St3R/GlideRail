@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using System.IO;
 
 namespace GlideRail
 {
@@ -80,6 +81,24 @@ namespace GlideRail
 
         public void OnUpdate()
         {
+            if (_pendingHint != null)
+            {
+                _panel?.ShowHint(_pendingHint, GlideRailPanel.HintType.Ok);
+                _pendingHint = null;
+            }
+
+            if (_pendingLoad.HasValue)
+            {
+                var (kfs, dur) = _pendingLoad.Value;
+                _pendingLoad = null;
+                SaveSnapshot("Load from file");
+                _keyframes.Clear();
+                _keyframes.AddRange(kfs);
+                _playDur = dur;
+                RefreshDebugVisuals();
+                _panel?.OnKeyframesChanged();
+            }
+
             if (!_flyActive) return;
 
             // Wymuszaj GameMode.UI co klatkę
@@ -120,6 +139,8 @@ namespace GlideRail
             RefreshDebugVisuals();
             _panel?.OnKeyframesChanged();
         }
+
+
 
         // ═════════════════════════════════════════════════════════════════════
         // PANEL OPEN / CLOSE
@@ -541,6 +562,80 @@ namespace GlideRail
             }
             // Fly mode — nie rób nic, kursor i tak nie powinien być widoczny
         }
+
+        public void SaveToFile(Action<string> onResult)
+        {
+            if (_keyframes.Count == 0)
+            {
+                _pendingHint = "No keyframes to save.";
+                onResult(_pendingHint);
+                return;
+            }
+
+            // Dialog musi być na osobnym wątku STA
+            System.Threading.Thread t = new System.Threading.Thread(() =>
+            {
+                string path = GlideFileDialog.SaveDialog("Save GlideRail Path");
+                if (string.IsNullOrEmpty(path))
+                {
+                    _pendingHint = $"Saved: {Path.GetFileName(path)}";
+                    onResult(_pendingHint);
+                    return;
+                }
+
+                try
+                {
+                    string json = GlidePathSerializer.SerializeJson(_keyframes, _playDur);
+                    System.IO.File.WriteAllText(path, json, System.Text.Encoding.UTF8);
+                    onResult($"Saved: {System.IO.Path.GetFileName(path)}");
+                }
+                catch (Exception ex)
+                {
+                    onResult($"Save error: {ex.Message}");
+                }
+            });
+            t.SetApartmentState(System.Threading.ApartmentState.STA);
+            t.Start();
+        }
+
+        public void LoadFromFile(Action<string> onResult)
+        {
+            System.Threading.Thread t = new System.Threading.Thread(() =>
+            {
+                string path = GlideFileDialog.OpenDialog("Load GlideRail Path");
+                if (string.IsNullOrEmpty(path))
+                {
+                    onResult("Load cancelled.");
+                    return;
+                }
+
+                try
+                {
+                    string json = System.IO.File.ReadAllText(path, System.Text.Encoding.UTF8);
+                    var kfs = GlidePathSerializer.DeserializeJson(json, out float dur);
+                    if (kfs == null || kfs.Count == 0)
+                    {
+                        onResult("Invalid file.");
+                        return;
+                    }
+
+                    // Wróć na główny wątek Unity przez flagę
+                    _pendingLoad = (kfs, dur);
+                    onResult($"Loaded: {System.IO.Path.GetFileName(path)} ({kfs.Count} KF)");
+                }
+                catch (Exception ex)
+                {
+                    onResult($"Load error: {ex.Message}");
+                }
+            });
+            t.SetApartmentState(System.Threading.ApartmentState.STA);
+            t.Start();
+        }
+
+        // ── Pending load (z wątku STA na główny wątek Unity) ──────────────────────
+        private (List<GlideKeyframe> kfs, float dur)? _pendingLoad = null;
+
+        private string _pendingHint = null;
 
 
         // ═════════════════════════════════════════════════════════════════════
