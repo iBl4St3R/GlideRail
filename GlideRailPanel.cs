@@ -229,6 +229,29 @@ namespace GlideRail
                         $"▶  {_session.PlaybackTime:F1}s / {_session.PlayDur:F0}s");
             });
 
+
+            // FOOTER stopka
+            const float FOOT_H = 14f;
+            var footVE = UIRuntime.NewVE();
+            var footSt = UIRuntime.GetStyle(footVE);
+            S.Position(footSt, "Absolute");
+            S.Left(footSt, 0f);
+            S.Top(footSt, panH - FOOT_H - 2f);
+            S.Width(footSt, (float)(sw - 16));
+            S.Height(footSt, FOOT_H);
+            p.AddOverlayToPanel(footVE);
+
+            var footerLbl = p.AddLabelToContainer(
+                footVE,
+                "GlideRail v0.1.0  ·  Made by iBlaster  ·  github.com/iBl4St3R/GlideRail",
+                0f, 0f, (float)(sw - 16), FOOT_H,
+                new Color(0.28f, 0.48f, 0.90f, 0.40f));
+            footerLbl.SetFontSize(9);
+            S.TextAlign(
+                UIRuntime.GetStyle(UIRuntime.WrapVE(footerLbl.GetRawPtr())),
+                TextAnchor.MiddleCenter);
+
+
             _panel = p;
             _panel.SetVisible(_panelVisible);
             _session.ResyncCursorAfterRebuild();
@@ -295,7 +318,7 @@ namespace GlideRail
             rc.AddLabel("│", 10f, CDIM);
 
             // ── Path duration ─────────────────────────────────────────────────────────
-            rc.AddLabel("Total Time:", 80f, CDIM).SetFontSize(14);
+            rc.AddLabel("Total Time:", 160f, CDIM).SetFontSize(17);
             _lblDurVal = rc.AddLabel($"{_session.PlayDur:F0}s", 40f, CVAL);
             _lblDurVal.SetFontSize(15);
             rc.AddButton("−", 24f, () =>
@@ -310,7 +333,7 @@ namespace GlideRail
             }, CPL);
 
             // ── Move speed ────────────────────────────────────────────────────────────
-            rc.AddLabel("Move:", 52f, CDIM).SetFontSize(14);
+            rc.AddLabel("Move:", 52f, CDIM).SetFontSize(17);
             _lblSpdVal = rc.AddLabel($"{_session.FlySpeed:F0}", 36f, CVAL);
             _lblSpdVal.SetFontSize(15);
             rc.AddButton("−", 24f, () =>
@@ -325,7 +348,7 @@ namespace GlideRail
             }, CPL);
 
             // ── Look sensitivity ──────────────────────────────────────────────────────
-            rc.AddLabel("Look:", 52f, CDIM).SetFontSize(14);
+            rc.AddLabel("Look:", 52f, CDIM).SetFontSize(17);
             _lblSnsVal = rc.AddLabel($"{_session.FlySens:F1}", 36f, CVAL);
             _lblSnsVal.SetFontSize(15);
             rc.AddButton("−", 24f, () =>
@@ -345,7 +368,7 @@ namespace GlideRail
             int kfc = _session.Keyframes.Count;
             _lblKfCount = rc.AddLabel($" KF: {kfc} ", 76f,
             kfc >= 2 ? COK : kfc == 1 ? CWRN : CDIM);
-            _lblKfCount.SetFontSize(16);
+            _lblKfCount.SetFontSize(19);
 
             rc.AddButton("[F5]  + KF", 86f, () =>
             {
@@ -391,7 +414,7 @@ namespace GlideRail
 
 
             _lblProgress = rc.AddLabel("", 108f, COK);
-            _lblProgress.SetFontSize(10);
+            _lblProgress.SetFontSize(17);
         }
 
 
