@@ -81,6 +81,7 @@ namespace GlideRail
         /// <summary>Podświetl aktualny KF podczas playback.</summary>
         public void SetActiveKf(int index)
         {
+            if (_activeKf == index) return;  
             _activeKf = index;
             RefreshTiles();
         }
