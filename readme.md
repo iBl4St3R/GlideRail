@@ -19,7 +19,7 @@ Record keyframe-based camera paths and play them back as smooth Catmull-Rom spli
 
 ## Usage
 
-Open the console (F7) and type `gliderail_open`.
+Open  the console (F7) and type `gliderail_open`.
 
 ### Controls
 
